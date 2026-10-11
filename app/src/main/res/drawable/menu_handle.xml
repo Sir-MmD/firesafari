@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A thin rounded pill inset from the edge; the full view stays larger so it is easy to tap. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="6dp"
+    android:insetRight="3dp">
+    <shape android:shape="rectangle">
+        <solid android:color="@color/menu_handle" />
+        <corners android:radius="3dp" />
+    </shape>
+</inset>
