@@ -1,4 +1,4 @@
-package app.chrosafari
+package app.firesafari
 
 import android.content.Context
 import android.util.Log
@@ -14,7 +14,7 @@ import java.io.File
 object Engine {
     private const val TAG = "Engine"
     private const val EXTENSION_URI = "resource://android/assets/ios-profile/"
-    private const val EXTENSION_ID = "ios-profile@chrosafari.app"
+    private const val EXTENSION_ID = "ios-profile@firesafari.app"
 
     private var runtime: GeckoRuntime? = null
     private lateinit var extension: GeckoResult<WebExtension>

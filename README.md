@@ -1,4 +1,4 @@
-# chrosafari
+# FireSafari
 
 An Android app that opens websites the way an iPhone opens home-screen web apps, and tells
 every site it is Safari on iPhone. Use it for sites that refuse to work in Android browsers
@@ -48,7 +48,7 @@ Sites that only want to push you to their app don't look that deep.
 
 ## Using it
 
-- **Add a site**: tap *Add site*, or share a link to chrosafari from any app.
+- **Add a site**: tap *Add site*, or share a link to FireSafari from any app.
 - **Open it**: tap it in the list. Each site opens in its own task, like a separate app.
 - **Home screen icon**: long-press a site, or use the menu inside it, then *Add to home
   screen*. It uses the site's own icon (web app manifest or `apple-touch-icon`).

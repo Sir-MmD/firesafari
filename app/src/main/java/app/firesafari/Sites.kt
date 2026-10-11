@@ -1,4 +1,4 @@
-package app.chrosafari
+package app.firesafari
 
 import android.content.Context
 import android.net.Uri
@@ -18,7 +18,7 @@ data class Site(
     val contextId get() = "site-$id"
 
     /** Unique per site, so each site gets its own task in recents (documentLaunchMode). */
-    val launchUri: Uri get() = Uri.parse("chrosafari://site/$id")
+    val launchUri: Uri get() = Uri.parse("firesafari://site/$id")
 
     companion object {
         fun create(name: String, url: String) = Site(UUID.randomUUID().toString(), name, url)
@@ -41,7 +41,7 @@ object Sites {
     fun get(context: Context, id: String) = all(context).firstOrNull { it.id == id }
 
     fun fromLaunchUri(context: Context, uri: Uri?): Site? =
-        if (uri?.scheme == "chrosafari" && uri.host == "site") uri.lastPathSegment?.let { get(context, it) } else null
+        if (uri?.scheme == "firesafari" && uri.host == "site") uri.lastPathSegment?.let { get(context, it) } else null
 
     /** Adds the site, or replaces the one with the same id. */
     fun put(context: Context, site: Site) {

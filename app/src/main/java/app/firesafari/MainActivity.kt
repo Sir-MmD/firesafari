@@ -1,4 +1,4 @@
-package app.chrosafari
+package app.firesafari
 
 import android.app.Activity
 import android.app.ActivityManager

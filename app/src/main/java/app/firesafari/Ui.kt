@@ -1,4 +1,4 @@
-package app.chrosafari
+package app.firesafari
 
 import android.content.ClipData
 import android.content.ClipboardManager

@@ -1,4 +1,4 @@
-package app.chrosafari
+package app.firesafari
 
 import android.app.AlertDialog
 import android.net.Uri

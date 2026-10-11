@@ -1,12 +1,12 @@
 <resources>
-    <style name="Theme.Chrosafari" parent="android:Theme.DeviceDefault.DayNight">
+    <style name="Theme.FireSafari" parent="android:Theme.DeviceDefault.DayNight">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
         <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
     </style>
 
-    <style name="Theme.Chrosafari.WebApp">
+    <style name="Theme.FireSafari.WebApp">
         <item name="android:windowBackground">@color/webapp_background</item>
     </style>
 </resources>

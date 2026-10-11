@@ -7,13 +7,13 @@ plugins {
 val geckoviewVersion = "157.0.20261005135250"
 
 android {
-    namespace = "app.chrosafari"
+    namespace = "app.firesafari"
     compileSdk {
         version = release(37) { minorApiLevel = 2 }
     }
 
     defaultConfig {
-        applicationId = "app.chrosafari"
+        applicationId = "app.firesafari"
         minSdk = 29
         targetSdk = 36
         versionCode = 1

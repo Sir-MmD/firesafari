@@ -1,4 +1,4 @@
-package app.chrosafari
+package app.firesafari
 
 import android.app.ActivityManager
 import android.app.AlertDialog
@@ -74,7 +74,7 @@ class WebAppActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         site = Sites.fromLaunchUri(this, intent.data) ?: run {
-            toast("This site was removed from chrosafari")
+            toast("This site was removed from FireSafari")
             finishAndRemoveTask()
             return
         }

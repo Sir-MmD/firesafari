@@ -4,7 +4,7 @@
   "description": "Makes page-visible browser properties match Safari on iPhone.",
   "version": "1.0",
   "browser_specific_settings": {
-    "gecko": { "id": "ios-profile@chrosafari.app" }
+    "gecko": { "id": "ios-profile@firesafari.app" }
   },
   "host_permissions": ["<all_urls>"],
   "content_scripts": [

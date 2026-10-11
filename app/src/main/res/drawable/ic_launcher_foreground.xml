@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- A flame with a hollow inner flame (evenOdd), so it also works as a themed monochrome icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group>
-        <path
-            android:pathData="M54,30a24,24 0,1 0,0.01 0z"
-            android:strokeWidth="4"
-            android:strokeColor="#FFFFFF" />
-        <path
-            android:pathData="M30,54h48M54,30c-8,7 -11,15 -11,24s3,17 11,24M54,30c8,7 11,15 11,24s-3,17 -11,24"
-            android:strokeWidth="3.5"
-            android:strokeColor="#FFFFFF"
-            android:strokeLineCap="round" />
-    </group>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,25 C58,35 71,42 71,59 C71,70 63.5,79 54,79 C44.5,79 37,70 37,59 C37,50.5 41.5,44.5 46,39.5 C46,45.5 48,49.5 51.5,51 C50,42 51.5,32.5 54,25 Z M54,54 C56.8,58.6 61,61.2 61,66.4 C61,70.6 57.8,73.4 54,73.4 C50.2,73.4 47,70.6 47,66.4 C47,62.6 49.6,60.2 51.4,58.6 C52.4,61 53.2,62 54.2,62 C53.4,59.2 53.4,56.6 54,54 Z" />
 </vector>

@@ -17,5 +17,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "chrosafari"
+rootProject.name = "firesafari"
 include(":app")
