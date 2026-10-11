@@ -1,2 +1,5 @@
-# Firefox source checkout (created by build.sh) and its build output.
+# Firefox source checkout and its build output (created by build.sh).
 /firefox/
+# Release APKs and the build log (published as GitHub release assets, not in git).
+/dist/
+/build.log
