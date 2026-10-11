@@ -1,95 +1,98 @@
 # FireSafari
 
-An Android app that opens websites the way an iPhone opens home-screen web apps, and tells
-every site it is Safari on iPhone. Use it for sites that refuse to work in Android browsers
-and push you to install their app.
+Firefox for Android, rebuilt so that every website sees **Safari on iPhone** by default:
+in normal tabs, private tabs, custom tabs and installed web apps. Everything else is the
+full Firefox browser: tabs, address bar, bookmarks, history, passwords, sync, add-ons,
+"Add to home screen" / install for web apps, and so on.
 
-It is built on GeckoView (the engine inside Firefox for Android), not Chromium. Firefox's
-engine has no User-Agent Client Hints and no Chrome-only APIs, so there is less to hide.
+Use it for sites that refuse to work in Android browsers and push you to their app.
 
-## How it works
+## What's different from Firefox
 
-The iPhone identity is applied at three levels, so it can't leak the way a browser
-extension does (extensions only cover tabs, not installed web apps or service workers):
+| | Firefox | FireSafari |
+| --- | --- | --- |
+| User agent, `navigator.platform`, `navigator.appVersion` | Firefox on Android | Safari on iPhone, as engine defaults: every request, page, frame, worker and service worker |
+| Page-visible details | Firefox | Safari's: `navigator.vendor`, `navigator.standalone` (true only in installed web apps), `DeviceMotionEvent.requestPermission`, `-webkit-touch-callout`, no Firefox-only properties |
+| Request desktop site | Firefox on Linux | Safari on Mac, as on an iPhone |
+| Web-compat fixes | rewrite the user agent for some sites | kept, but leave the Safari user agent alone |
+| `about:config` | Beta and Nightly only | available |
+| Telemetry, usage ping, studies | on by default | off by default (Settings > Data collection) |
+| Sponsored shortcuts | on by default | off by default |
+| Package | `org.mozilla.firefox` | `app.firesafari`, installs next to Firefox |
 
-1. **Engine prefs** (`IosProfile.kt`, passed to GeckoView through its config file): the
-   user agent, `navigator.platform` and `navigator.appVersion`. These cover every HTTP
-   request, every frame, Web Workers and service workers.
-2. **A built-in extension** (`assets/ios-profile/spoof.js`) that runs in the page's own
-   JavaScript world, in every frame, before any page script. It adds what Safari on iPhone
-   has (`navigator.standalone`, `navigator.vendor`, `DeviceMotionEvent.requestPermission`,
-   `CSS.supports('-webkit-touch-callout', ...)`, gesture event handlers) and removes what
-   only Firefox or Android have (`navigator.oscpu`, `buildID`, `vibrate`, `doNotTrack`,
-   `-moz-` CSS support, ...). Replaced functions print as `[native code]`.
-3. **Standalone display mode**: each site runs full screen with no browser UI, and
-   `@media (display-mode: standalone)` matches, like a home-screen web app on iOS.
+### Changing the user agent
 
-Each site gets its own storage partition: cookies and site data are never shared between
-sites, and you can clear or delete them per site.
+Open `about:config` and change `general.useragent.override` (plus
+`general.appversion.override` and `general.platform.override` if you switch to a different
+device). Your value overrides FireSafari's default and survives restarts. Reset it to go back.
 
-### Verified on an Android 16 emulator
+The default is Safari 26.3's string. From iOS 26 on, Safari always reports the OS as
+`18_6`; only the `Version/` part follows the Safari release.
 
-| Where a site looks | What it sees |
-| --- | --- |
-| HTTP `User-Agent` on page, worker and service worker requests | iPhone Safari UA |
-| `Sec-CH-UA*` Client Hints headers | none sent |
-| `navigator.userAgent` / `platform` / `appVersion` (page, iframe, Worker, ServiceWorker) | iPhone values |
-| `navigator.vendor` / `productSub` / `maxTouchPoints` | `Apple Computer, Inc.` / `20030107` / `5` |
-| `navigator.standalone`, `display-mode: standalone` | `true` |
-| `navigator.userAgentData`, `oscpu`, `buildID`, `vibrate`, `connection` | absent |
-| The first `<script>` in `<head>`, and a freshly created `about:blank` iframe | already spoofed |
+## How it's built
 
-### What it can't hide
+`patches/` holds the changes against Firefox's source. `build.sh` checks out the Firefox
+release, applies them, and builds the Android app with Gradle on Mozilla's prebuilt
+GeckoView (the engine) from maven.mozilla.org. No Gecko C++ is compiled.
 
-It is still Firefox's engine underneath. A site doing deep fingerprinting could notice
-engine-level differences: rendering and fonts, form control styling, screen size and pixel
-ratio, WebGL details, JavaScript engine quirks, and the TLS/HTTP2 connection fingerprint.
-Sites that only want to push you to their app don't look that deep.
+Where the identity comes from (see `patches/`):
 
-## Using it
+- `FireSafariProfile.kt` (in the GeckoView engine module): the user agents, and the engine
+  prefs that Fenix passes to GeckoView at startup through its config file.
+- `fenix/app/src/main/assets/extensions/ios-profile/`: a built-in extension that runs in each
+  page's own JavaScript world, in every frame, before any page script.
+- `GeckoEngineSession.toggleDesktopMode`: the Safari on Mac user agent for desktop sites.
 
-- **Add a site**: tap *Add site*, or share a link to FireSafari from any app.
-- **Open it**: tap it in the list. Each site opens in its own task, like a separate app.
-- **Home screen icon**: long-press a site, or use the menu inside it, then *Add to home
-  screen*. It uses the site's own icon (web app manifest or `apple-touch-icon`).
-- **Menu inside a site**: tap the small grey handle on the right edge (reload, start page,
-  copy or share the link, add to home screen, close).
-- **Back** goes back in the site's history, closes popups, and at the start leaves the app.
-- **Update the user agent**: top-right menu, *iPhone user agent*. Copy the current one from
-  Safari on a real iPhone when Safari's version moves on. The app restarts to apply it.
+### Requirements
 
-Notifications are always refused: this app doesn't deliver web push.
+- JDK 17 or 21 (`JAVA_HOME`; newer JDKs are too new for Gradle).
+- Android SDK at `ANDROID_HOME` (default `~/Android/Sdk`) with platform `android-37.1`,
+  build-tools, and the command-line tools also reachable as `cmdline-tools/21.0` (Mozilla's
+  configure looks for that exact folder; a symlink to `cmdline-tools/latest` works).
+- `~/.mozbuild/bundletool.jar`: bundletool 1.18.3 from
+  https://github.com/google/bundletool/releases
+- Python 3.10 to 3.14, git, and about 10 GB of disk.
 
-## Building
-
-Requirements: JDK 17 or 21 (Gradle can't run on the newest JDKs yet), Android SDK with
-platform `android-37.2` and build tools.
+### Build
 
 ```sh
-echo "sdk.dir=$HOME/Android/Sdk" > local.properties
-JAVA_HOME=/path/to/jdk-21 ./gradlew assembleRelease
+./build.sh
 ```
 
-APKs land in `app/build/outputs/apk/release/`, one per CPU type. Almost every current phone
-needs `app-arm64-v8a-release.apk`. Install it with `adb install`, or copy it to the phone
-and open it.
+The first run clones Firefox (about 4 GB), runs Mozilla's `mach configure` (which downloads
+two small prebuilt tools into `~/.mozbuild`), generates the few sources that come from
+Mozilla's build system, and builds with Gradle. APKs land in
+`firefox/objdir-firesafari/gradle/build/mobile/android/fenix/app/outputs/apk/release/`, one
+per CPU type. Almost every current phone needs the `arm64-v8a` one.
 
-Release builds are signed with this machine's debug key, so later builds install over
-earlier ones. Keep `~/.android/debug.keystore`: without it you'd have to uninstall (and
-lose site data) to update.
+The build is tuned to fit in about 6 GB of free RAM: a 5 GB Gradle heap, 2 workers, and no
+R8 shrinking (so the APK is larger than Mozilla's). On a bigger machine:
+`GRADLE_HEAP=8g GRADLE_WORKERS=8 SHRINK=1 ./build.sh`. Closing memory-hungry apps while it
+runs helps.
 
-## Keeping it safe
+APKs are signed with this machine's debug key (`~/.android/debug.keystore`). Keep that file:
+updates must be signed with the same key, or you'd have to uninstall and lose your data.
 
-GeckoView ships inside the APK, so it only gets security fixes when you rebuild. Bump
-`geckoviewVersion` in `app/build.gradle.kts` every month or so (latest versions:
-https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml) and
-reinstall.
+### Updating to a newer Firefox
 
-## Privacy notes
+Firefox ships security fixes about every four weeks, and FireSafari only gets them when you
+rebuild. Set `FIREFOX_TAG` and `GECKOVIEW_VERSION` in `build.sh` to the new release (tags:
+`git ls-remote --tags https://github.com/mozilla-firefox/firefox 'FIREFOX_*_RELEASE'`),
+delete `firefox/`, and run `./build.sh`. If a patch no longer applies, fix it in the new
+checkout and regenerate it with `git format-patch`.
 
-- No telemetry or crash reporting is wired up.
-- The engine's connectivity checks to Mozilla's servers are turned off.
-- Tracking protection is on, and third-party cookies are isolated per site.
-- Other engine defaults (security lists, Safe Browsing) are left as in GeckoView.
-- GeckoView depends on Google's FIDO library for passkeys. It talks to Play Services on the
-  device only if a site asks for a passkey.
+## Limits
+
+- It is still Firefox's engine underneath. A site doing deep fingerprinting can notice
+  engine-level differences (rendering, fonts, form controls, WebGL, the TLS fingerprint).
+  Sites that only want to push you to their app don't look that deep.
+- In desktop mode, the page and its requests report Safari on Mac, but Web Workers and
+  service workers keep the iPhone user agent: the engine gives workers its global default,
+  and changing that per tab needs a Gecko change (this build uses Mozilla's prebuilt engine).
+- `navigator.standalone` is true in web apps installed with a web app manifest (Firefox's
+  "Install"). Sites that only use Apple's `apple-mobile-web-app-capable` meta tag get a plain
+  home-screen shortcut, which opens as a normal tab.
+- This is a personal build. Don't distribute it as Firefox; Mozilla's trademarks don't
+  allow that, which is also why it carries its own name and icon.
+
+The previous standalone web-app launcher lives in git history at tag `webapp-launcher-0.1`.

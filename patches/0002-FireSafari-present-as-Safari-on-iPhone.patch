@@ -1,0 +1,388 @@
+From 4947ce61384cd37b699b889cfce81016e4d38cf4 Mon Sep 17 00:00:00 2001
+From: Sir-MmD <27060102+Sir-MmD@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 16:58:39 +0330
+Subject: [PATCH 2/4] FireSafari: present as Safari on iPhone
+
+- iPhone Safari user agent, platform and appVersion as GeckoView default prefs, so
+  tabs, custom tabs, installed web apps, workers and service workers all report it.
+  They are defaults: about:config (now enabled in all builds) can change them.
+- Built-in ios-profile extension for page-visible Safari properties.
+- Request desktop site sends Safari on Mac's user agent, as an iPhone does.
+- Web-compat interventions keep their fixes but leave a Safari user agent alone.
+---
+ .../extensions/webcompat/lib/interventions.js |   6 +
+ .../browser/engine/gecko/FireSafariProfile.kt |  57 ++++++
+ .../engine/gecko/GeckoEngineSession.kt        |   3 +
+ .../extensions/ios-profile/manifest.json      |  21 +++
+ .../assets/extensions/ios-profile/spoof.js    | 172 ++++++++++++++++++
+ .../java/org/mozilla/fenix/components/Core.kt |   9 +
+ .../org/mozilla/fenix/gecko/GeckoProvider.kt  |   6 +-
+ 7 files changed, 273 insertions(+), 1 deletion(-)
+ create mode 100644 mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/FireSafariProfile.kt
+ create mode 100644 mobile/android/fenix/app/src/main/assets/extensions/ios-profile/manifest.json
+ create mode 100644 mobile/android/fenix/app/src/main/assets/extensions/ios-profile/spoof.js
+
+diff --git a/browser/extensions/webcompat/lib/interventions.js b/browser/extensions/webcompat/lib/interventions.js
+index 593e7b5dc4..bf751ee943 100644
+--- a/browser/extensions/webcompat/lib/interventions.js
++++ b/browser/extensions/webcompat/lib/interventions.js
+@@ -1067,6 +1067,12 @@ class Interventions {
+           return { requestHeaders };
+         }
+ 
++        // FireSafari presents Safari (iPhone, or Mac in desktop mode). These overrides are
++        // written for Firefox's own user agent, so leave the Safari one untouched.
++        if (/ Version\/[\d.]+ (Mobile\/\w+ )?Safari\//.test(header.value)) {
++          return { requestHeaders };
++        }
++
+         header.value = InterventionHelpers.applyUAChanges(
+           header.value,
+           ua_string
+diff --git a/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/FireSafariProfile.kt b/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/FireSafariProfile.kt
+new file mode 100644
+index 0000000000..585c00f913
+--- /dev/null
++++ b/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/FireSafariProfile.kt
+@@ -0,0 +1,57 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++package mozilla.components.browser.engine.gecko
++
++import android.content.Context
++import java.io.File
++
++/**
++ * FireSafari: the identity the browser presents to websites.
++ *
++ * Safari on iPhone by default, everywhere: tabs, custom tabs and installed web apps all share
++ * one engine, and these are engine prefs, so they also cover workers and service workers.
++ * "Request desktop site" switches to Safari on Mac, which is what an iPhone sends too.
++ *
++ * The prefs are engine *defaults*: a value changed in about:config wins and persists.
++ * Page-visible details that prefs can't change are in the built-in extension
++ * (fenix/app/src/main/assets/extensions/ios-profile/).
++ */
++object FireSafariProfile {
++    /** Safari on iOS 26 and later freezes the OS token at 18_6; only Version/ tracks the release. */
++    const val IPHONE_USER_AGENT =
++        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 " +
++            "(KHTML, like Gecko) Version/26.3 Mobile/15E148 Safari/604.1"
++
++    /** What Safari on iPhone sends for "Request Desktop Website" (macOS freezes 10_15_7). */
++    const val MAC_USER_AGENT =
++        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 " +
++            "(KHTML, like Gecko) Version/26.3 Safari/605.1.15"
++
++    const val EXTENSION_ID = "ios-profile@firesafari.app"
++    const val EXTENSION_URL = "resource://android/assets/extensions/ios-profile/"
++
++    private val prefs: Map<String, Any> = linkedMapOf(
++        "general.useragent.override" to IPHONE_USER_AGENT,
++        // Safari's appVersion is its user agent minus the leading "Mozilla/".
++        "general.appversion.override" to IPHONE_USER_AGENT.removePrefix("Mozilla/"),
++        "general.platform.override" to "iPhone",
++        // Android-only APIs that Safari on iPhone does not have.
++        "dom.vibrator.enabled" to false,
++        "dom.netinfo.enabled" to false,
++    )
++
++    /** Writes the engine config file (GeckoRuntimeSettings.configFilePath) and returns its path. */
++    fun writeEngineConfig(context: Context): String {
++        val yaml = buildString {
++            appendLine("prefs:")
++            for ((key, value) in prefs) {
++                appendLine("  ${quote(key)}: ${if (value is String) quote(value) else value}")
++            }
++        }
++        return File(context.filesDir, "firesafari-gecko-config.yaml").apply { writeText(yaml) }.absolutePath
++    }
++
++    private fun quote(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
++}
+diff --git a/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/GeckoEngineSession.kt b/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/GeckoEngineSession.kt
+index fa923ec77f..089bcc869e 100644
+--- a/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/GeckoEngineSession.kt
++++ b/mobile/android/android-components/components/browser/engine-gecko/src/main/java/mozilla/components/browser/engine/gecko/GeckoEngineSession.kt
+@@ -470,6 +470,9 @@ class GeckoEngineSession(
+         if (newMode != currentMode || newViewportMode != currentViewPortMode) {
+             geckoSession.settings.userAgentMode = newMode
+             geckoSession.settings.viewportMode = newViewportMode
++            // FireSafari: desktop sites get Safari on Mac, as "Request Desktop Website" does on iPhone.
++            geckoSession.settings.userAgentOverride =
++                if (enable) FireSafariProfile.MAC_USER_AGENT else defaultSettings?.userAgentString
+             notifyObservers { onDesktopModeChange(enable) }
+         }
+ 
+diff --git a/mobile/android/fenix/app/src/main/assets/extensions/ios-profile/manifest.json b/mobile/android/fenix/app/src/main/assets/extensions/ios-profile/manifest.json
+new file mode 100644
+index 0000000000..eaef7ba668
+--- /dev/null
++++ b/mobile/android/fenix/app/src/main/assets/extensions/ios-profile/manifest.json
+@@ -0,0 +1,21 @@
++{
++  "manifest_version": 3,
++  "name": "iOS Safari profile",
++  "description": "Makes page-visible browser properties match Safari on iPhone.",
++  "version": "1.0",
++  "browser_specific_settings": {
++    "gecko": { "id": "ios-profile@firesafari.app" }
++  },
++  "host_permissions": ["<all_urls>"],
++  "content_scripts": [
++    {
++      "matches": ["<all_urls>"],
++      "js": ["spoof.js"],
++      "run_at": "document_start",
++      "all_frames": true,
++      "match_about_blank": true,
++      "match_origin_as_fallback": true,
++      "world": "MAIN"
++    }
++  ]
++}
+diff --git a/mobile/android/fenix/app/src/main/assets/extensions/ios-profile/spoof.js b/mobile/android/fenix/app/src/main/assets/extensions/ios-profile/spoof.js
+new file mode 100644
+index 0000000000..29f1a18afe
+--- /dev/null
++++ b/mobile/android/fenix/app/src/main/assets/extensions/ios-profile/spoof.js
+@@ -0,0 +1,172 @@
++// Runs in the page's own JavaScript world, in every frame, before any page script.
++//
++// The user agent, navigator.platform and navigator.appVersion are deliberately NOT set here.
++// They are engine prefs (see FireSafariProfile.kt) so that HTTP headers, workers and service
++// workers report iPhone too. This script covers what prefs cannot: properties Safari has
++// that Firefox lacks, and Firefox-only properties Safari does not have.
++(() => {
++  "use strict";
++
++  // --- Make replacements print like built-in functions ---------------------------------
++
++  const nativeToString = Function.prototype.toString;
++  const disguised = new WeakMap();
++
++  // Use real built-ins as templates so the output matches this engine's exact formatting.
++  const nativeGetter = Object.getOwnPropertyDescriptor(Navigator.prototype, "userAgent").get;
++  const getterTemplate = nativeToString.call(nativeGetter);
++  const functionTemplate = nativeToString.call(Function.prototype.call);
++
++  const accessorSource = (kind, prop) =>
++    getterTemplate.includes("get userAgent")
++      ? getterTemplate.replace("get userAgent", `${kind} ${prop}`)
++      : getterTemplate.replace("userAgent", prop);
++  const functionSource = (name) => functionTemplate.replace("call", name);
++
++  function disguise(fn, source) {
++    disguised.set(fn, source);
++    return fn;
++  }
++
++  const toString = new Proxy(nativeToString, {
++    apply(target, thisArg, args) {
++      const source = disguised.get(thisArg);
++      return source !== undefined ? source : Reflect.apply(target, thisArg, args);
++    },
++  });
++  disguise(toString, nativeToString.call(nativeToString));
++  Object.defineProperty(Function.prototype, "toString", { value: toString });
++
++  // --- Helpers ---------------------------------------------------------------------------
++
++  function defineValue(target, prop, value) {
++    defineGetter(target, prop, () => value);
++  }
++
++  function defineGetter(target, prop, compute) {
++    if (!target) return;
++    const existing = Object.getOwnPropertyDescriptor(target, prop);
++    const get = Object.getOwnPropertyDescriptor({ get [prop]() { return compute(); } }, prop).get;
++    Object.defineProperty(target, prop, {
++      get: disguise(get, accessorSource("get", prop)),
++      set: undefined,
++      enumerable: existing ? existing.enumerable : true,
++      configurable: true,
++    });
++  }
++
++  // Event handler property that accepts a handler but never fires (e.g. ongesturestart).
++  function defineInertHandler(target, prop) {
++    if (prop in target) return;
++    let handler = null;
++    const accessors = {
++      get [prop]() { return handler; },
++      set [prop](value) { handler = typeof value === "function" ? value : null; },
++    };
++    const { get, set } = Object.getOwnPropertyDescriptor(accessors, prop);
++    Object.defineProperty(target, prop, {
++      get: disguise(get, accessorSource("get", prop)),
++      set: disguise(set, accessorSource("set", prop)),
++      enumerable: true,
++      configurable: true,
++    });
++  }
++
++  // Delete a property wherever it lives on the prototype chain, so `prop in obj` is false.
++  function remove(target, prop) {
++    for (let o = target; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) {
++      if (Object.prototype.hasOwnProperty.call(o, prop)) {
++        try { delete o[prop]; } catch (e) { /* non-configurable: leave it */ }
++      }
++    }
++  }
++
++  // --- navigator ---------------------------------------------------------------------------
++
++  const nav = Navigator.prototype;
++  const userAgent = nativeGetter.call(navigator);
++  defineValue(nav, "vendor", "Apple Computer, Inc.");
++  defineValue(nav, "productSub", "20030107");
++  defineValue(nav, "maxTouchPoints", 5);
++
++  // iOS-only: true when running as an installed (home-screen) web app, false in a tab.
++  const matchMedia = window.matchMedia.bind(window);
++  defineGetter(nav, "standalone", () =>
++    matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches);
++
++  // "Request desktop site" sends Safari on Mac's user agent. Safari on iPhone then reports a
++  // Mac everywhere, so match the engine-wide iPhone values to it.
++  if (/\(Macintosh;/.test(userAgent)) {
++    defineValue(nav, "platform", "MacIntel");
++    defineValue(nav, "appVersion", userAgent.replace(/^Mozilla\//, ""));
++  }
++
++  // Firefox (or Android) only; Safari on iPhone has none of these.
++  for (const prop of ["oscpu", "buildID", "vibrate", "doNotTrack", "globalPrivacyControl",
++                      "registerProtocolHandler", "taintEnabled", "mozGetUserMedia"]) {
++    remove(nav, prop);
++  }
++
++  // --- window ------------------------------------------------------------------------------
++
++  for (const prop of ["mozInnerScreenX", "mozInnerScreenY", "mozPaintCount", "InstallTrigger", "sidebar"]) {
++    remove(window, prop);
++  }
++
++  // iOS Safari has these gesture event handlers; sites use `'ongesturestart' in window` as an iOS check.
++  for (const prop of ["ongesturestart", "ongesturechange", "ongestureend"]) {
++    defineInertHandler(window, prop);
++  }
++
++  // iOS 13+ requires asking before reading motion sensors; the static method only exists there.
++  for (const name of ["DeviceMotionEvent", "DeviceOrientationEvent"]) {
++    const ctor = window[name];
++    if (typeof ctor !== "function" || "requestPermission" in ctor) continue;
++    const requestPermission = { requestPermission() { return Promise.resolve("granted"); } }.requestPermission;
++    Object.defineProperty(ctor, "requestPermission", {
++      value: disguise(requestPermission, functionSource("requestPermission")),
++      writable: true,
++      enumerable: true,
++      configurable: true,
++    });
++  }
++
++  // --- CSS ---------------------------------------------------------------------------------
++
++  // `CSS.supports('-webkit-touch-callout', 'none')` is a common iOS check; -moz- support is a Firefox tell.
++  if (window.CSS && typeof CSS.supports === "function") {
++    const nativeSupports = CSS.supports;
++    const iosOnly = /-webkit-touch-callout/i;
++    const geckoOnly = /(^|[\s(])-moz-/i;
++    const supports = {
++      supports(conditionOrProperty) {
++        const text = String(conditionOrProperty);
++        if (iosOnly.test(text)) return true;
++        if (geckoOnly.test(text)) return false;
++        return Reflect.apply(nativeSupports, CSS, arguments);
++      },
++    }.supports;
++    Object.defineProperty(CSS, "supports", { value: disguise(supports, nativeToString.call(nativeSupports)) });
++  }
++
++  // Firefox-only style properties (style.MozAppearance and friends), plus Safari's touch-callout.
++  for (const name of ["CSS2Properties", "CSSStyleProperties", "CSSStyleDeclaration"]) {
++    const proto = window[name] && window[name].prototype;
++    if (!proto) continue;
++    for (const prop of Object.getOwnPropertyNames(proto)) {
++      if (/^(Moz[A-Z]|-moz-)/.test(prop)) remove(proto, prop);
++    }
++  }
++  const styleProto = (window.CSS2Properties || window.CSSStyleProperties || window.CSSStyleDeclaration).prototype;
++  for (const prop of ["webkitTouchCallout", "WebkitTouchCallout"]) {
++    if (prop in styleProto) continue;
++    const accessors = { get [prop]() { return ""; }, set [prop](value) {} };
++    const { get, set } = Object.getOwnPropertyDescriptor(accessors, prop);
++    Object.defineProperty(styleProto, prop, {
++      get: disguise(get, accessorSource("get", prop)),
++      set: disguise(set, accessorSource("set", prop)),
++      enumerable: true,
++      configurable: true,
++    });
++  }
++})();
+diff --git a/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt b/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt
+index 45a68358d1..c5b1564f22 100644
+--- a/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt
++++ b/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt
+@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import mozilla.components.browser.domains.autocomplete.BaseDomainAutocompleteProvider
+ import mozilla.components.browser.domains.autocomplete.ShippedDomainsProvider
++import mozilla.components.browser.engine.gecko.FireSafariProfile
+ import mozilla.components.browser.engine.gecko.GeckoEngine
+ import mozilla.components.browser.engine.gecko.fetch.GeckoViewFetchClient
+ import mozilla.components.browser.engine.gecko.permission.GeckoSitePermissionsStorage
+@@ -104,6 +105,7 @@ import mozilla.components.service.pocket.mars.api.NEW_TAB_SPOCS_PLACEMENT_KEY
+ import mozilla.components.service.pocket.mars.api.Placement as MarsSpocsPlacement
+ import mozilla.components.service.sync.autofill.AutofillCreditCardsAddressesStorage
+ import mozilla.components.service.sync.logins.SyncableLoginsStorage
++import mozilla.components.support.base.log.logger.Logger
+ import mozilla.components.support.base.worker.Frequency
+ import mozilla.components.support.ktx.android.content.appVersionName
+ import mozilla.components.support.ktx.android.content.res.readJSONObject
+@@ -266,6 +268,13 @@ class Core(
+             )
+             .also {
+                 WebCompatFeature.install(it)
++                // FireSafari: page-visible parts of the Safari identity, in every tab and web app.
++                it.installBuiltInWebExtension(
++                    FireSafariProfile.EXTENSION_ID,
++                    FireSafariProfile.EXTENSION_URL,
++                    onSuccess = { Logger.debug("Installed FireSafari iOS profile") },
++                    onError = { throwable -> Logger.error("Failed to install FireSafari iOS profile", throwable) },
++                )
+             }
+     }
+ 
+diff --git a/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/gecko/GeckoProvider.kt b/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/gecko/GeckoProvider.kt
+index 1edcf54eeb..e9d68f546f 100644
+--- a/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/gecko/GeckoProvider.kt
++++ b/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/gecko/GeckoProvider.kt
+@@ -7,6 +7,7 @@ package org.mozilla.fenix.gecko
+ import android.content.Context
+ import androidx.annotation.VisibleForTesting
+ import kotlinx.coroutines.CoroutineScope
++import mozilla.components.browser.engine.gecko.FireSafariProfile
+ import mozilla.components.browser.engine.gecko.autofill.GeckoAutocompleteStorageDelegate
+ import mozilla.components.browser.engine.gecko.crash.GeckoCrashPullDelegate
+ import mozilla.components.browser.engine.gecko.ext.toContentBlockingSetting
+@@ -105,6 +106,8 @@ object GeckoProvider {
+     ): GeckoRuntimeSettings {
+         val builder =
+             GeckoRuntimeSettings.Builder()
++                // FireSafari: present as Safari on iPhone, engine-wide (see FireSafariProfile).
++                .configFilePath(FireSafariProfile.writeEngineConfig(context))
+                 .crashHandler(CrashHandlerService::class.java)
+                 .experimentDelegate(NimbusExperimentDelegate())
+                 .contentBlocking(
+@@ -128,7 +131,8 @@ object GeckoProvider {
+                 )
+                 .consoleOutput(context.components.settings.enableGeckoLogs)
+                 .debugLogging(Config.channel.isDebug || context.components.settings.enableGeckoLogs)
+-                .aboutConfigEnabled(Config.channel.isBeta || Config.channel.isNightlyOrDebug)
++                // FireSafari: about:config in every build, so the user agent can be changed there.
++                .aboutConfigEnabled(true)
+                 .extensionsProcessEnabled(true)
+                 .extensionsWebAPIEnabled(true)
+                 .translationsOfferPopup(context.components.settings.offerTranslation)

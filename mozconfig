@@ -1,0 +1,11 @@
+# FireSafari build configuration for Mozilla's mach (used by build.sh).
+# Firefox for Android only, on the prebuilt GeckoView: no Gecko C++ is compiled.
+ac_add_options --enable-project=mobile/android
+ac_add_options --target=aarch64-linux-android
+ac_add_options --enable-artifact-builds
+ac_add_options --enable-update-channel=release
+ac_add_options --with-android-sdk="${ANDROID_HOME:-$HOME/Android/Sdk}"
+ac_add_options --with-java-bin-path="$JAVA_HOME/bin"
+# Download only the two prebuilt tools Fenix's Gradle build needs (into ~/.mozbuild).
+ac_add_options --enable-bootstrap=embedded-uniffi-bindgen,nimbus-fml
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir-firesafari

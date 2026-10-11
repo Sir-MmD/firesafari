@@ -1,0 +1,31 @@
+From 57b491d2622257f2e9ae375f5d26f0ae0e9248da Mon Sep 17 00:00:00 2001
+From: Sir-MmD <27060102+Sir-MmD@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 16:58:38 +0330
+Subject: [PATCH 1/4] FireSafari: build on Mozilla's prebuilt release GeckoView
+
+Resolve GeckoView from maven.mozilla.org (geckoview-omni, pinned, overridable with
+-PgeckoviewVersion) instead of a locally built snapshot, so no Gecko C++ is compiled.
+---
+ .../components/browser/engine-gecko/build.gradle         | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/mobile/android/android-components/components/browser/engine-gecko/build.gradle b/mobile/android/android-components/components/browser/engine-gecko/build.gradle
+index d8dfbe90bb..2a064d0cac 100644
+--- a/mobile/android/android-components/components/browser/engine-gecko/build.gradle
++++ b/mobile/android/android-components/components/browser/engine-gecko/build.gradle
+@@ -155,6 +155,15 @@ def computeArtifactId() {
+ }
+ 
+ def getGeckoViewDependency() {
++    // FireSafari: use Mozilla's prebuilt release GeckoView from maven.mozilla.org instead of a
++    // locally built one, so no Gecko C++ is compiled. Pass -PgeckoviewVersion=... to move to a
++    // newer release (versions: maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview-omni/).
++    def firesafariVersion = project.findProperty("geckoviewVersion") ?: "157.0.20261005135250"
++    rootProject.logger.lifecycle("Getting geckoview: geckoview-omni:${firesafariVersion}")
++    return "org.mozilla.geckoview:geckoview-omni:${firesafariVersion}"
++}
++
++def getUpstreamGeckoViewDependency() {
+     // on try, relax geckoview version pin to allow for --use-existing-task
+     if ('https://hg.mozilla.org/try' == System.env.GECKO_HEAD_REPOSITORY) {
+         rootProject.logger.lifecycle("Getting geckoview on try: ${computeArtifactId()}:+")

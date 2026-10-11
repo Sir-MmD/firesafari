@@ -1,6 +1,2 @@
-.gradle/
-.kotlin/
-build/
-local.properties
-*.iml
-.idea/
+# Firefox source checkout (created by build.sh) and its build output.
+/firefox/

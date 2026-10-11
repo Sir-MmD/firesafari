@@ -1,0 +1,74 @@
+From e73bc9c8c987e882624cac90b51e28e8f764de5b Mon Sep 17 00:00:00 2001
+From: Sir-MmD <27060102+Sir-MmD@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 16:58:40 +0330
+Subject: [PATCH 3/4] FireSafari: telemetry and sponsored shortcuts off by
+ default
+
+Telemetry (and with it the daily usage ping and studies) and sponsored shortcuts
+are opt-in; both can still be turned on in settings.
+---
+ .../app/src/main/java/org/mozilla/fenix/utils/Settings.kt   | 6 ++++--
+ mobile/android/fenix/app/src/main/res/values/strings.xml    | 6 +++---
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/utils/Settings.kt b/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/utils/Settings.kt
+index 7881995e29..0558b40ea3 100644
+--- a/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/utils/Settings.kt
++++ b/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/utils/Settings.kt
+@@ -714,10 +714,11 @@ class Settings(
+             default = false,
+         )
+ 
++    // FireSafari: telemetry is opt-in (also turns off the usage ping and studies by default).
+     var isTelemetryEnabled by
+         booleanPreference(
+             appContext.getPreferenceKey(R.string.pref_key_telemetry),
+-            default = true,
++            default = false,
+         )
+ 
+     var isMarketingTelemetryEnabled by
+@@ -2318,10 +2319,11 @@ class Settings(
+         )
+ 
+     /** Indicates if the Contile functionality should be visible. */
++    // FireSafari: no sponsored shortcuts unless turned on in settings.
+     var showContileFeature by
+         booleanPreference(
+             key = appContext.getPreferenceKey(R.string.pref_key_enable_contile),
+-            default = true,
++            default = false,
+         )
+ 
+     /** Blocklist used to filter items from the home screen that have previously been removed. */
+diff --git a/mobile/android/fenix/app/src/main/res/values/strings.xml b/mobile/android/fenix/app/src/main/res/values/strings.xml
+index e279f53a62..7e57dfe45d 100644
+--- a/mobile/android/fenix/app/src/main/res/values/strings.xml
++++ b/mobile/android/fenix/app/src/main/res/values/strings.xml
+@@ -424,7 +424,7 @@
+     <!-- Used as text for the link in onboarding_term_of_service_line_two. -->
+     <string name="onboarding_term_of_service_line_two_link_text">Privacy Notice</string>
+     <!-- Line three of the terms of service onboarding page. 'Firefox' and 'Mozilla' are intentionally hardcoded. %1$s is replaced by an active link using onboarding_term_of_service_line_three_link_text as text (“Manage”). -->
+-    <string name="onboarding_term_of_service_line_three" tools:ignore="BrandUsage">To help improve the browser, Firefox sends diagnostic and interaction data to Mozilla. %1$s</string>
++    <string name="onboarding_term_of_service_line_three" tools:ignore="BrandUsage">FireSafari doesn’t send diagnostic or interaction data to Mozilla unless you turn it on. %1$s</string>
+     <!-- Used as text for the link in onboarding_term_of_service_line_three. -->
+     <string name="onboarding_term_of_service_line_three_link_text">Manage</string>
+ 
+@@ -448,7 +448,7 @@
+     <string name="onboarding_redesign_tou_body_two_link_text" tools:ignore="UnusedResources">Privacy Notice</string>
+     <!-- Terms of use (ToU) third body text. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+         %1$s is replaced by an active link using onboarding_redesign_tou_body_three_link_text as text (“Manage Settings”). -->
+-    <string name="onboarding_redesign_tou_body_three" tools:ignore="BrandUsage,UnusedResources">To help improve the browser, Firefox sends diagnostic and interaction data to Mozilla. %1$s</string>
++    <string name="onboarding_redesign_tou_body_three" tools:ignore="BrandUsage,UnusedResources">FireSafari doesn’t send diagnostic or interaction data to Mozilla unless you turn it on. %1$s</string>
+     <!-- Used as text for the link in onboarding_redesign_tou_body_three. -->
+     <string name="onboarding_redesign_tou_body_three_link_text" tools:ignore="UnusedResources">Manage Settings</string>
+     <!-- Terms of use (ToU) onboarding page continue button label. -->
+@@ -520,7 +520,7 @@
+ 
+     <!-- Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+         %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”). -->
+-    <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage">To help improve the browser, Firefox sends diagnostic and interaction data to Mozilla. %1$s</string>
++    <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage">FireSafari doesn’t send diagnostic or interaction data to Mozilla unless you turn it on. %1$s</string>
+ 
+     <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+     <string name="nova_onboarding_tou_body_line_3_link_text">Manage settings</string>
